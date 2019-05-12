@@ -409,7 +409,7 @@ contains
 		   SHG     , SHC     , SHB     , EVG     , EVB     , GHV     , & ! OUT :
 		   GHB     , IRG     , IRC     , IRB     , TR      , EVC     , & ! OUT :
 		   CHLEAF  , CHUC    , CHV2    , CHB2    , FPICE   , PAHV    , &
-                   PAHG    , PAHB    , PAH                                     &
+                   PAHG    , PAHB    , PAH     , LAISUN  , LAISHA  , RB        & ! OUT
 #ifdef WRF_HYDRO
                    ,SFCHEADRT                                                  & ! IN/OUT :
 #endif
@@ -418,6 +418,7 @@ contains
 ! --------------------------------------------------------------------------------------------------
 ! Initial code: Guo-Yue Niu, Oct. 2007
 ! --------------------------------------------------------------------------------------------------
+
   implicit none
 ! --------------------------------------------------------------------------------------------------
 ! input
@@ -532,6 +533,9 @@ contains
   REAL                           , INTENT(OUT)   :: PONDING!surface ponding [mm]
   REAL                           , INTENT(OUT)   :: PONDING1!surface ponding [mm]
   REAL                           , INTENT(OUT)   :: PONDING2!surface ponding [mm]
+  REAL                           , INTENT(OUT)   :: RB        ! leaf boundary layer resistance (s/m)
+  REAL                           , INTENT(OUT)   :: LAISUN    ! sunlit leaf area index (m2/m2)
+  REAL                           , INTENT(OUT)   :: LAISHA    ! shaded leaf area index (m2/m2)
 
 !jref:start; output
   REAL                           , INTENT(OUT)     :: T2MV   !2-m air temperature over vegetated part [k]
@@ -762,7 +766,7 @@ contains
                  TV     ,TG     ,STC    ,SNOWH  ,EAH    ,TAH    , & !inout
                  SNEQVO ,SNEQV  ,SH2O   ,SMC    ,SNICE  ,SNLIQ  , & !inout
                  ALBOLD ,CM     ,CH     ,DX     ,DZ8W   ,Q2     , & !inout
-                 TAUSS  ,                                         & !inout
+                 TAUSS  ,LAISUN ,LAISHA ,RB ,                     & !inout
 !jref:start
                  QC     ,QSFC   ,PSFC   , & !in 
                  T2MV   ,T2MB  ,FSRV   , &
@@ -812,7 +816,7 @@ contains
    ENDIF
 
    IF (dveg_active) THEN
-    CALL CARBON (parameters,NSNOW  ,NSOIL  ,VEGTYP ,DT     ,ZSOIL  , & !in
+     CALL CARBON (parameters,NSNOW  ,NSOIL  ,VEGTYP ,DT     ,ZSOIL  , & !in
                  DZSNSO ,STC    ,SMC    ,TV     ,TG     ,PSN    , & !in
                  FOLN   ,BTRAN  ,APAR   ,FVEG   ,IGS    , & !in
                  TROOT  ,IST    ,LAT    ,iloc   ,jloc   , & !in
@@ -1513,7 +1517,7 @@ ENDIF   ! CROPTYPE == 0
                      TV     ,TG     ,STC    ,SNOWH  ,EAH    ,TAH    , & !inout
                      SNEQVO ,SNEQV  ,SH2O   ,SMC    ,SNICE  ,SNLIQ  , & !inout
                      ALBOLD ,CM     ,CH     ,DX     ,DZ8W   ,Q2     , &   !inout
-                     TAUSS  ,                                         & !inout
+                     TAUSS  ,LAISUN ,LAISHA ,RB ,                     & !inout
 !jref:start
                      QC     ,QSFC   ,PSFC   , & !in 
                      T2MV   ,T2MB   ,FSRV   , &
@@ -1679,6 +1683,9 @@ ENDIF   ! CROPTYPE == 0
   REAL                              , INTENT(INOUT) :: CM     !momentum drag coefficient
   REAL                              , INTENT(INOUT) :: CH     !sensible heat exchange coefficient
   REAL                              , INTENT(INOUT) :: Q1
+  REAL                              , INTENT(INOUT) :: RB     !leaf boundary layer resistance (s/m)
+  REAL                              , INTENT(INOUT) :: LAISUN !sunlit leaf area index (m2/m2)
+  REAL                              , INTENT(INOUT) :: LAISHA !shaded leaf area index (m2/m2)
 !  REAL                                              :: Q2E
   REAL,                               INTENT(OUT)   :: EMISSI
   REAL,                               INTENT(OUT)   :: PAH    !precipitation advected heat - total (W/m2)
@@ -1689,7 +1696,7 @@ ENDIF   ! CROPTYPE == 0
   REAL                                              :: UR     !wind speed at height ZLVL (m/s)
   REAL                                              :: ZLVL   !reference height (m)
   REAL                                              :: FSUN   !sunlit fraction of canopy [-]
-  REAL                                              :: RB     !leaf boundary layer resistance (s/m)
+ ! REAL                                              :: RB     !leaf boundary layer resistance (s/m)
   REAL                                              :: RSURF  !ground surface resistance (s/m)
   REAL                                              :: L_RSURF!Dry-layer thickness for computing RSURF (Sakaguchi and Zeng, 2009)
   REAL                                              :: D_RSURF!Reduced vapor diffusivity in soil for computing RSURF (SZ09)
@@ -1705,8 +1712,6 @@ ENDIF   ! CROPTYPE == 0
   REAL                                              :: EMG    !ground emissivity
   REAL                                              :: FIRE   !emitted IR (w/m2)
 
-  REAL                                              :: LAISUN !sunlit leaf area index (m2/m2)
-  REAL                                              :: LAISHA !shaded leaf area index (m2/m2)
   REAL                                              :: PSNSUN !sunlit photosynthesis (umolco2/m2/s)
   REAL                                              :: PSNSHA !shaded photosynthesis (umolco2/m2/s)
 !jref:start - for debug  
@@ -1772,7 +1777,7 @@ ENDIF   ! CROPTYPE == 0
 
   REAL, PARAMETER                   :: MPE    = 1.E-6
   REAL, PARAMETER                   :: PSIWLT = -150.  !metric potential for wilting point (m)
-  REAL, PARAMETER                   :: Z0     = 0.002   ! Bare-soil roughness length (m) (i.e., under the canopy)
+  REAL, PARAMETER                   :: Z0     = 0.002  ! Bare-soil roughness length (m) (i.e., under the canopy)
 
 ! ---------------------------------------------------------------------------------------------------
 ! initialize fluxes from veg. fraction
@@ -1795,6 +1800,7 @@ ENDIF   ! CROPTYPE == 0
     CHLEAF    = 0.
     CHUC      = 0.
     CHV2      = 0.
+    RB        = 0.
 
 ! wind speed at reference height: ur >= 1
 
@@ -3553,11 +3559,8 @@ ENDIF   ! CROPTYPE == 0
         H      = 0.
         QFX    = 0.
 
-! convert grid-cell LAI to the fractional vegetated area (FVEG)
+! limit LAI
 
-!        VAIE    = MIN(6.,VAI    / FVEG)
-!        LAISUNE = MIN(6.,LAISUN / FVEG)
-!        LAISHAE = MIN(6.,LAISHA / FVEG)
         VAIE    = MIN(6.,VAI   )
         LAISUNE = MIN(6.,LAISUN)
         LAISHAE = MIN(6.,LAISHA)
