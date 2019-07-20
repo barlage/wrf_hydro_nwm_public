@@ -65,7 +65,9 @@
     },
 
     "nwm_ana": {
-        "hydro_nlist": {},
+        "hydro_nlist": {
+	    "reservoir_persistence": false
+	},
         "nudging_nlist": {}
     },
 
@@ -76,7 +78,8 @@
             "ovrtswcrt": 0,
             "rst_typ": 0,
             "rtout_domain": 0,
-            "subrtswcrt": 0
+            "subrtswcrt": 0,
+	    "reservoir_persistence": false
         },
         "nudging_nlist": {
             "maxagepairsbiaspersist": 24,
@@ -98,7 +101,8 @@
         "hydro_nlist": {
             "lsmout_domain": 0,
             "output_gw": 0,
-            "output_channelbucket_influx": 2
+            "output_channelbucket_influx": 2,
+	    "reservoir_persistence": false
         },
         "nudging_nlist": {}
     },
@@ -112,7 +116,8 @@
 	    "lsmout_domain": 0,
 	    "output_channelbucket_influx": 2,
 	    "output_gw": 0,
-	    "rst_dt": 60
+	    "rst_dt": 60,
+	    "reservoir_persistence": false
 	},
         "nudging_nlist": {}
     },
@@ -132,7 +137,8 @@
             "rst_dt": 60,
             "rst_typ": 0,
             "rtout_domain": 0,
-            "subrtswcrt": 0
+            "subrtswcrt": 0,
+	    "reservoir_persistence": false
         },
         "nudging_nlist": {
             "maxagepairsbiaspersist": 24,

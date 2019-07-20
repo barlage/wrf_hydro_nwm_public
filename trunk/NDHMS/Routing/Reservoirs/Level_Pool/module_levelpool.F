@@ -14,12 +14,13 @@
 ! processes the given inputs, parameters, and
 ! state for a particular level pool reservoir and
 ! returns the output/outflow.
+
 module module_levelpool
 
     use module_levelpool_parameters
     use module_levelpool_state
+    use module_reservoir_utilities
     use module_reservoir_base
-    use module_levelpool_tests
     implicit none
 
     ! Extend/derive level pool struct from the abstract base
@@ -38,6 +39,7 @@ module module_levelpool
         procedure :: init => levelpool_struct_init
         procedure :: destroy => levelpool_struct_destroy
         procedure :: run_release => run_levelpool_release
+
     end type levelpool_struct
 
 contains
@@ -59,6 +61,10 @@ contains
         real, intent(in)    :: orifice_area              ! orifice area (meters^2)
         real, intent(in)    :: max_depth                 ! max depth of reservoir before overtop (meters)
         integer, intent(in) :: lake_number               ! lake number
+
+        ! Create diagnostic log file
+        ! Uncomment this call only for development/debugging purposes
+        call create_levelpool_diagnostic_log_file(lake_number)
 
         if (this%pointer_allocation_guard .eqv. .false. ) then
             ! try to allocate input
@@ -109,11 +115,13 @@ contains
 
     end subroutine levelpool_struct_init
 
+
     !Level Pool Destructor
     subroutine levelpool_struct_destroy(this)
         implicit none
         class(levelpool_struct), intent(inout) :: this ! object being destroyed
     end subroutine levelpool_struct_destroy
+
 
     ! Subroutine for running release for a level pool reservoir,
     ! which will then call the LEVELPOOL method/subroutine for processing the
@@ -143,7 +151,7 @@ contains
         reservoir_data%input%lateral_inflow,                    &
         routing_period,                                         &
         reservoir_data%state%water_elevation,                   &
-        reservoir_data%parameters%lake_area,          		&
+        reservoir_data%parameters%lake_area,          		    &
         reservoir_data%parameters%weir_elevation,               &
         reservoir_data%parameters%max_depth,                    &
         reservoir_data%parameters%weir_coeffecient,             &
@@ -161,6 +169,10 @@ contains
 
         ! Update water_elevation variable returned from this subroutine
         water_elevation = reservoir_data%state%water_elevation
+
+        ! Log diagnostic data
+        ! Uncomment this call only for development/debugging purposes
+        call log_levelpool_diagnostic_data(reservoir_data%parameters%lake_number, inflow, water_elevation, outflow)
 
     end subroutine run_levelpool_release
 
@@ -237,14 +249,18 @@ contains
           dh = maxWeirDepth
        endif
 
-       if (dh .gt. 0.0 ) then              !! orifice and overtop discharge
-          tmp1 = oc * oa * sqrt(2. * 9.81 * ( H - oe ) )
-          tmp2 = wc * wl * (dh ** (3./2.))
-          discharge = tmp1 + tmp2
-       else if ( H .gt. oe ) then     !! only orifice flow,not full
-          discharge = oc * oa * sqrt(2. * 9.81 * ( H - oe ) )
+       tmp1 = oc * oa * sqrt(2. * 9.81 * ( H - oe )) !orifice at capacity
+       tmp2 = wc * wl * (dh ** (3./2.))  !weir flows at capacity
+
+       !determine the discharge based on current height
+       if(H .gt. maxh) then
+         discharge =  tmp1 + tmp2 + (wc* (wl*10) * (H-maxh)**(3./2.)) !overtop
+       else if (dh .gt. 0.0 ) then              !! orifice and weir discharge
+         discharge = tmp1 + tmp2
+       else if ( H .gt. oe ) then     !! only orifice flow
+         discharge = oc * oa * sqrt(2. * 9.81 * ( H - oe ) )
        else
-          discharge = 0.0
+         discharge = 0.0   !in the dead pool
        endif
 
        if (sap .gt. 0) then
@@ -260,15 +276,20 @@ contains
           dh = maxWeirDepth
        endif
 
-       if (dh .gt. 0.0 ) then              !! orifice and overtop discharge
-          tmp1 = oc * oa * sqrt(2. * 9.81 * ( (H+dh1/3.) - oe ) )
-          tmp2 = wc * wl * (dh ** (3./2.))
-          discharge = tmp1 + tmp2
+       tmp1 = oc * oa * sqrt(2. * 9.81 * ( (H+dh1/3.) - oe ) )
+       tmp2 = wc * wl * (dh ** (3./2.))
+
+       !determine the discharge based on current height
+       if(H .gt. maxh) then
+         discharge =  tmp1 + tmp2 + (wc* (wl*10) * (H-maxh)**(3./2.)) !overtop
+       else if (dh .gt. 0.0 ) then              !! orifice and weir discharge
+         discharge = tmp1 + tmp2
        else if ( (H+dh1/3) .gt. oe ) then     !! only orifice flow,not full
-          discharge = oc * oa * sqrt(2. * 9.81 * ( (H+dh1/3.) - oe ) )
+         discharge = oc * oa * sqrt(2. * 9.81 * ( (H+dh1/3.) - oe ) )
        else
-          discharge = 0.0
-       endif
+         discharge = 0.0
+        endif
+
 
        if (sap .gt. 0.0) then
           dh2 = ((Itdt_3 - discharge)/sap)*dt
@@ -283,9 +304,13 @@ contains
           dh = maxWeirDepth
        endif
 
-       if (dh .gt. 0.0 ) then              !! orifice and overtop discharge
-          tmp1 = oc * oa * sqrt(2. * 9.81 * ( (H+dh2*0.667) - oe ) )
-          tmp2 = wc * wl * (dh ** (3./2.))
+       tmp1 = oc * oa * sqrt(2. * 9.81 * ( (H+dh2*0.667) - oe ) )
+       tmp2 = wc * wl * (dh ** (3./2.))
+
+       !determine the discharge based on current height
+       if(H .gt. maxh) then  ! overtop condition, not good!
+         discharge =  tmp1 + tmp2 + (wc* (wl*10) * (H-maxh)**(3./2.)) !overtop
+       else if (dh .gt. 0.0 ) then              !! orifice and weir discharge
           discharge = tmp1 + tmp2
        else if ( (H+dh2*0.667) .gt. oe ) then     !! only orifice flow,not full
           discharge = oc * oa * sqrt(2. * 9.81 * ( (H+dh2*0.667) - oe ) )
@@ -308,19 +333,20 @@ contains
        if (dh .gt. maxWeirDepth) then
           dh = maxWeirDepth
        endif
-       if (dh .gt. 0.0 ) then              !! orifice and overtop discharge
-          tmp1 = oc * oa * sqrt(2. * 9.81 * ( H - oe ) )
-          tmp2 = wc * wl * (dh ** (3./2.))
+
+       tmp1 = oc * oa * sqrt(2. * 9.81 * ( H - oe ) )
+       tmp2 = wc * wl * (dh ** (3./2.))
+
+
+       !determine the discharge based on current height
+       if(H .gt. maxh) then  ! overtop condition, not good!
+         discharge =  tmp1 + tmp2 + (wc* (wl*10) * (H-maxh)**(3./2.)) !overtop
+       else if (dh .gt. 0.0 ) then              !! orifice and overtop discharge
           discharge = tmp1 + tmp2
        else if ( H .gt. oe ) then     !! only orifice flow,not full
           discharge = oc * oa * sqrt(2. * 9.81 * ( H - oe ) )
        else
           discharge = 0.0
-       endif
-
-       if(H .ge. maxh) then  ! overtop condition
-          discharge = qi1
-          H = maxh
        endif
 
        qo1  = discharge  ! return the flow rate from reservoir
@@ -350,87 +376,5 @@ contains
     ! ----------------------------------------------------------------
     end subroutine LEVELPOOL
     ! ----------------------------------------------------------------
-
-
-    function levelpool_data_info(levelpool_data) result(rv)
-    implicit none
-    type (levelpool_struct) :: levelpool_data
-    integer :: rv
-    logical, dimension(1) :: ptr_state
-    logical, dimension(1) :: data_state
-
-    rv = 0
-
-    ! Check to see if the levelpool_state data structure exists
-    print *, "Checking pointer association on data%state "
-    if ( associated(levelpool_data%state) ) then
-        print *, "PASSED"
-        ptr_state(1) = .true.
-    else
-        print *, "FAILED"
-        ptr_state(1) = .false.
-    end if
-    print *, " "
-
-    ! Check to see if the levelpool_parameters data structure exists
-    print *, "Checking pointer association on data%parameters "
-    if ( associated(levelpool_data%parameters) ) then
-        print *, "PASSED"
-        ptr_state(2) = .true.
-    else
-        print *, "FAILED"
-        ptr_state(2) = .false.
-    end if
-    print *, " "
-
-    ! Check to see if the levelpool_input data structure exists
-    print *, "Checking pointer association on data%input "
-    if ( associated(levelpool_data%input) ) then
-        print *, "PASSED"
-        ptr_state(3) = .true.
-    else
-        print *, "FAILED"
-        ptr_state(3) = .false.
-    end if
-    print *, " "
-
-    ! Check to see if the levelpool_output data structure exists
-    print *, "Checking pointer association on data%output "
-    if ( associated(levelpool_data%output) ) then
-        print *, "PASSED"
-        ptr_state(4) = .true.
-    else
-        print *, "FAILED"
-        ptr_state(4) = .false.
-    end if
-    print *, " "
-
-
-    ! Now check the data members of each substructure
-    if ( ptr_state(1) ) then
-        data_state(1) = test_levelpool_state(levelpool_data%state)
-    end if
-
-    if ( ptr_state(2) ) then
-        data_state(2) = test_levelpool_parameters(levelpool_data%parameters)
-    end if
-
-    if ( ptr_state(3) ) then
-        data_state(3) = test_input(levelpool_data%input)
-    end if
-
-    if ( ptr_state(4) ) then
-        data_state(4) = test_output(levelpool_data%output)
-    end if
-
-
-    if ( all(ptr_state) .and. all(data_state) ) then
-        print *, "========================================================================"
-        print *, "All Tests Passed"
-        print *, "========================================================================"
-    end if
-    rv = 1
-
-    end function levelpool_data_info
 
 end module module_levelpool
