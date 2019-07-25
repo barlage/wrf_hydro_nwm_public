@@ -4,7 +4,7 @@ include ../../macros
 MODFLAG := $(MODFLAG) -I ../../mod
 
 %.o : %.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) $<
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) $<
 
 .PHONY: all mod test
 
@@ -12,13 +12,9 @@ all: mod
 
 mod:
 	#Build each sub module then build the module that depends on all sub modules
-	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) module_reservoir_utilities.F
+	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_reservoir_utilities.F
 	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) module_reservoir_base.F
-	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) module_levelpool_parameters.F
-	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) module_levelpool_state.F
-	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) module_levelpool_tests.F
-	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) module_levelpool.F
-	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) module_read_timeslice_data.F
+	$(COMPILER90) $(CPPINVOKE) $(CPPFLAGS) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_read_timeslice_data.F
 
 	ar -r ../../lib/libHYDRO.a module_reservoir_utilities.o
 	ar -r ../../lib/libHYDRO.a module_reservoir_base.o
@@ -36,19 +32,19 @@ mod:
 
 
 test:
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) hydro_stop.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) module_reservoir_utilities.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) module_reservoir_base.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) module_levelpool_parameters.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) module_levelpool_state.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) module_levelpool_tests.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) module_levelpool.F
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) module_read_timeslice_data.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) hydro_stop.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_reservoir_utilities.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_reservoir_base.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_levelpool_parameters.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_levelpool_state.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_levelpool_tests.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_levelpool.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) module_read_timeslice_data.F
 
 	make -C Level_Pool
 	make -C Persistence_Level_Pool_Hybrid
 
-	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDFINC) reservoir_tests.F
+	$(COMPILER90) $(F90FLAGS) $(LDFLAGS) $(MODFLAG) -I$(NETCDF_INC) reservoir_tests.F
 
 
 	$(COMPILER90) $(NETCDFLIB) -o reservoir_tests \
@@ -74,3 +70,4 @@ clean:
 
 	make -C Level_Pool clean
 	make -C Persistence_Level_Pool_Hybrid clean
+
