@@ -18,6 +18,7 @@ if [[ ! -z $env_file ]]; then
     unset WRF_HYDRO
     unset HYDRO_D
     unset RESERVOIR_D
+    unset LSM_ONLY
     unset SPATIAL_SOIL
     unset WRF_HYDRO_RAPID
     unset WRFIO_NCD_LARGE_FILE_SUPPORT
@@ -35,6 +36,10 @@ if [[ "$WRF_HYDRO" -ne 1 ]]; then
     echo
     echo "The WRF_HYDRO compile option is required to be 1 for compile_offline_NoahMP.sh"
     exit 1
+fi
+
+if [[ "$LSM_ONLY" -eq 1 ]]; then
+    unset WRF_HYDRO
 fi
 
 rm -f  LandModel LandModel_cpl
